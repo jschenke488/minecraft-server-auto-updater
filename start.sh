@@ -6,7 +6,7 @@
 #           Version 1.0
 # Report issues at https://codeberg.org/pqtato/minecraft-server-auto-updater/issues
 
-# This start script automatically downloads the latest available version of Purpur and runs it
+# This start script automatically downloads the latest available version of Purpur, Paper, or Folia and runs it
 # Dependencies:
 # - coreutils (https://www.gnu.org/software/coreutils/) for verifying downloads
 # - java (https://adoptium.net/) for running the server
