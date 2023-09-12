@@ -4,6 +4,7 @@
 # | Minecraft Server Auto Updater |
 # '-------------------------------'
 #           Version 1.0
+# Report issues at https://codeberg.org/pqtato/minecraft-server-auto-updater/issues
 
 # This start script automatically downloads the latest available version of Purpur and runs it
 # Dependencies:
