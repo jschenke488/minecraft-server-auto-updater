@@ -3,7 +3,7 @@
 # .-------------------------------.
 # | Minecraft Server Auto Updater |
 # '-------------------------------'
-#           Version 1.0
+#           Version 1.1
 # Report issues at https://codeberg.org/pqtato/minecraft-server-auto-updater/issues
 
 # This start script automatically downloads the latest available version of Purpur, Paper, or Folia and runs it

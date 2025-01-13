@@ -1,5 +1,5 @@
 # Minecraft Server Auto Updater
-## Version 1.0
+## Version 1.1
 
 A start script for Minecraft servers that automatically updates.
 
