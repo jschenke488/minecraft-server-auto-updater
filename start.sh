@@ -9,7 +9,7 @@
 # This start script automatically downloads the latest available version of Purpur, Paper, or Folia and runs it
 # Dependencies:
 # - coreutils (https://www.gnu.org/software/coreutils/) for verifying downloads
-# - java (https://adoptium.net/) for running the server
+# - java (https://azul.com/downloads/#zulu) for running the server
 # - jq (https://jqlang.github.io/jq/) for processing information used to download the server
 # - Linux or macOS for running this script, Windows version coming when I feel like it
 
@@ -29,9 +29,10 @@
 # Port forwarding instructions can be found at https://minecraft.fandom.com/wiki/Tutorials/Setting_up_a_server#Firewalling,_NATs_and_external_IP_addresses
 # If you can't or don't want to port forward, you can use https://playit.gg/ (not sponsored or affiliated)
 
+# If you are having problems with your server crashing after the console says "Starting background profiler", try disabling Spark in config/paper-global.yml
+
 # Planned features (feel free to suggest more!):
-# - Support for Forge, Fabric, and Quilt
-# - Scheduled automatic restarts
+# - Support for NeoForge, Fabric, and Quilt
 
 # What is not planned (may change in the future):
 # - Web console (out of scope, use RCON or a plugin like DiscordSRV)
@@ -44,8 +45,6 @@
 # - paper (https://papermc.io/software/paper)
 # - purpur (https://purpurmc.org)
 SERVER_TYPE=purpur
-# If you are having problems with your server crashing after the console says "Starting background profiler", try disabling Spark. This only applies when using Purpur. (default: false)
-DISABLE_SPARK=false
 # Whether or not to use Aikar's flags. It is not recommended to turn this off unless you know what you are doing. For more information, go to https://docs.papermc.io/paper/aikars-flags (default: true)
 USE_AIKARS_FLAGS=true
 # The amount of deditated wam to allocate in gigabytes. It is recommended to use up to half of what is available in your computer. (default: 4)
@@ -80,7 +79,10 @@ while true; do
     SELECTED_USE_AIKARS_FLAGS=$USE_AIKARS_FLAGS # This would be set to false if the server type doesn't support Aikar's flags, which may be the case for server types added in later versions
   elif [ "$SERVER_TYPE" = "paper" ]; then
     SELECTED_MINECRAFT_VERSION=$([ "$MINECRAFT_VERSION" = "latest" ] && echo "$(curl -sS 'https://api.papermc.io/v2/projects/paper' | jq -r '.versions[]' | sort -V | tail -1)" || echo "$MINECRAFT_VERSION" )
-    LATEST_BUILD=$(curl -sS "https://api.papermc.io/v2/projects/paper/versions/$SELECTED_MINECRAFT_VERSION" | jq -r '.builds[]' | sort -V | tail -1)
+    LATEST_BUILD=$(curl -s https://api.papermc.io/v2/projects/paper/versions/${SELECTED_MINECRAFT_VERSION}/builds | jq '.builds | map(select(.channel == "default") | .build) | .[-1]')
+    if [ "$LATEST_BUILD" == "null" ]; then
+      LATEST_BUILD=$(curl -s https://api.papermc.io/v2/projects/paper/versions/${SELECTED_MINECRAFT_VERSION}/builds | jq -r '.builds[-1].build')
+    fi
     HASH=$(curl -sS "https://api.papermc.io/v2/projects/paper/versions/$SELECTED_MINECRAFT_VERSION/builds/$LATEST_BUILD" | jq -r '.downloads.application.sha256')
     HASH_TYPE=sha256
     DOWNLOAD_URL="https://api.papermc.io/v2/projects/paper/versions/$SELECTED_MINECRAFT_VERSION/builds/$LATEST_BUILD/downloads/$(curl -sS "https://api.papermc.io/v2/projects/paper/versions/$SELECTED_MINECRAFT_VERSION/builds/$LATEST_BUILD" | jq -r '.downloads.application.name')"
@@ -88,11 +90,14 @@ while true; do
     SELECTED_USE_AIKARS_FLAGS=$USE_AIKARS_FLAGS
   elif [ "$SERVER_TYPE" = "folia" ]; then
     SELECTED_MINECRAFT_VERSION=$([ "$MINECRAFT_VERSION" = "latest" ] && echo "$(curl -sS 'https://api.papermc.io/v2/projects/folia' | jq -r '.versions[]' | sort -V | tail -1)" || echo "$MINECRAFT_VERSION" )
-    LATEST_BUILD=$(curl -sS "https://api.papermc.io/v2/projects/folia/versions/$SELECTED_MINECRAFT_VERSION" | jq -r '.builds[]' | sort -V | tail -1)
+    LATEST_BUILD=$(curl -s https://api.papermc.io/v2/projects/folia/versions/${SELECTED_MINECRAFT_VERSION}/builds | jq '.builds | map(select(.channel == "default") | .build) | .[-1]')
+    if [ "$LATEST_BUILD" == "null" ]; then
+      LATEST_BUILD=$(curl -s https://api.papermc.io/v2/projects/folia/versions/${SELECTED_MINECRAFT_VERSION}/builds | jq -r '.builds[-1].build')
+    fi
     HASH=$(curl -sS "https://api.papermc.io/v2/projects/folia/versions/$SELECTED_MINECRAFT_VERSION/builds/$LATEST_BUILD" | jq -r '.downloads.application.sha256')
     HASH_TYPE=sha256
     DOWNLOAD_URL="https://api.papermc.io/v2/projects/folia/versions/$SELECTED_MINECRAFT_VERSION/builds/$LATEST_BUILD/downloads/$(curl -sS "https://api.papermc.io/v2/projects/folia/versions/$SELECTED_MINECRAFT_VERSION/builds/$LATEST_BUILD" | jq -r '.downloads.application.name')"
-    SERVER_TYPE_NAME=Paper
+    SERVER_TYPE_NAME=Folia
     SELECTED_USE_AIKARS_FLAGS=$USE_AIKARS_FLAGS
   fi
 
@@ -155,26 +160,10 @@ while true; do
 
   # Run the server using the correct flags
   if $SELECTED_USE_AIKARS_FLAGS; then
-    if [ $MEMORY -ge 12 ]; then
-      if [ "$SERVER_TYPE" = "purpur" ]; then
-        if $DISABLE_SPARK; then
-          java -Xms$MEMORY_MB -Xmx$MEMORY_MB -DPurpur.IReallyDontWantSpark=true --add-modules=jdk.incubator.vector -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=40 -XX:G1MaxNewSizePercent=50 -XX:G1HeapRegionSize=16M -XX:G1ReservePercent=15 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=20 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true -jar server.jar --nogui
-        else
-          java -Xms$MEMORY_MB -Xmx$MEMORY_MB --add-modules=jdk.incubator.vector -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=40 -XX:G1MaxNewSizePercent=50 -XX:G1HeapRegionSize=16M -XX:G1ReservePercent=15 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=20 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true -jar server.jar --nogui
-        fi
-      else
-        java -Xms$MEMORY_MB -Xmx$MEMORY_MB -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true -jar server.jar --nogui
-      fi
+    if [ "$SERVER_TYPE" = "purpur" ]; then
+      java -Xms$MEMORY_MB -Xmx$MEMORY_MB --add-modules=jdk.incubator.vector -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true -jar server.jar --nogui
     else
-      if [ "$SERVER_TYPE" = "purpur" ]; then
-        if $DISABLE_SPARK; then
-          java -Xms$MEMORY_MB -Xmx$MEMORY_MB -DPurpur.IReallyDontWantSpark=true --add-modules=jdk.incubator.vector -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true -jar server.jar --nogui
-        else
-          java -Xms$MEMORY_MB -Xmx$MEMORY_MB --add-modules=jdk.incubator.vector -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true -jar server.jar --nogui
-        fi
-      else
-        java -Xms$MEMORY_MB -Xmx$MEMORY_MB -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true -jar server.jar --nogui
-      fi
+      java -Xms$MEMORY_MB -Xmx$MEMORY_MB -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true -jar server.jar --nogui
     fi
   else
     java -Xms$MEMORY_MB -Xmx$MEMORY_MB -jar server.jar --nogui
