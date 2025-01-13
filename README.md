@@ -1,5 +1,6 @@
 # Minecraft Server Auto Updater
 ## Version 1.1
+### Report issues on [Codeberg](https://codeberg.org/pqtato/minecraft-server-auto-updater/issues)
 
 A start script for Minecraft servers that automatically updates.
 
