@@ -3,7 +3,7 @@
 # .-------------------------------.
 # | Minecraft Server Auto Updater |
 # '-------------------------------'
-#           Version 1.1
+#           Version 1.2
 # Report issues at https://codeberg.org/pqtato/minecraft-server-auto-updater/issues
 
 # This start script automatically downloads the latest available version of Purpur, Paper, or Folia and runs it
@@ -32,7 +32,7 @@
 # If you are having problems with your server crashing after the console says "Starting background profiler", try disabling Spark in config/paper-global.yml
 
 # Planned features (feel free to suggest more!):
-# - Support for NeoForge, Fabric, and Quilt
+# - Support for NeoForge and Quilt
 
 # What is not planned (may change in the future):
 # - Web console (out of scope, use RCON or a plugin like DiscordSRV)
@@ -44,6 +44,7 @@
 # - folia (https://papermc.io/software/folia)
 # - paper (https://papermc.io/software/paper)
 # - purpur (https://purpurmc.org)
+# - fabric (https://fabricmc.net)
 SERVER_TYPE=purpur
 # Whether or not to use Aikar's flags. It is not recommended to turn this off unless you know what you are doing. For more information, go to https://docs.papermc.io/paper/aikars-flags (default: true)
 USE_AIKARS_FLAGS=true
