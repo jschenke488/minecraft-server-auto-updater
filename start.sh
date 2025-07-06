@@ -3,10 +3,10 @@
 # .-------------------------------.
 # | Minecraft Server Auto Updater |
 # '-------------------------------'
-#           Version 1.2
+#           Version 1.3
 # Report issues at https://codeberg.org/pqtato/minecraft-server-auto-updater/issues
 
-# This start script automatically downloads the latest available version of Purpur, Paper, or Folia and runs it
+# This start script automatically downloads the latest available version of Purpur, Paper, Folia, Fabric, or NeoForge and runs it
 # Dependencies:
 # - coreutils (https://www.gnu.org/software/coreutils/) for verifying downloads
 # - java (https://azul.com/downloads/#zulu) for running the server
@@ -45,6 +45,7 @@
 # - paper (https://papermc.io/software/paper)
 # - purpur (https://purpurmc.org)
 # - fabric (https://fabricmc.net)
+# - neoforge (https://neoforged.net)
 SERVER_TYPE=purpur
 # Whether or not to use Aikar's flags. It is not recommended to turn this off unless you know what you are doing. For more information, go to https://docs.papermc.io/paper/aikars-flags (default: true)
 USE_AIKARS_FLAGS=true
@@ -101,8 +102,22 @@ while true; do
     SERVER_TYPE_NAME=Folia
     SELECTED_USE_AIKARS_FLAGS=$USE_AIKARS_FLAGS
   elif [ "$SERVER_TYPE" = "neoforge" ]; then
-    echo "NeoForge is not supported yet, please use a different server type."
-    exit 1
+    SELECTED_MINECRAFT_VERSION=$MINECRAFT_VERSION
+    if [ "$SELECTED_MINECRAFT_VERSION" = "latest" ]; then
+      INSTALLER_VERSION=$(curl -sS 'https://maven.neoforged.net/api/maven/latest/version/releases/net/neoforged/neoforge' | jq -r '.version')
+    else
+      SELECTED_MINECRAFT_VERSION_WITHOUT_THE_ONE=$(echo "$SELECTED_MINECRAFT_VERSION" | sed 's/^1.//g')
+      INSTALLER_VERSION=$(curl -sS "https://maven.neoforged.net/api/maven/latest/version/releases/net/neoforged/neoforge?filter=$SELECTED_MINECRAFT_VERSION_WITHOUT_THE_ONE" | jq -r '.version')
+    fi
+    INSTALLER_DOWNLOAD_URL="https://maven.neoforged.net/releases/net/neoforged/neoforge/$INSTALLER_VERSION/neoforge-$INSTALLER_VERSION-installer.jar"
+    curl -L -# -o installer.jar "$INSTALLER_DOWNLOAD_URL"
+    java -jar installer.jar --install-server --server-jar
+    rm ./installer.jar
+    HASH=none
+    HASH_TYPE=skip
+    SERVER_TYPE_NAME=NeoForge
+    SELECTED_USE_AIKARS_FLAGS=false
+    LATEST_BUILD="$MINECRAFT_VERSION-$INSTALLER_VERSION"
   elif [ "$SERVER_TYPE" = "fabric" ]; then
     SELECTED_MINECRAFT_VERSION=$([ "$MINECRAFT_VERSION" = "latest" ] && echo "$(curl -sS 'https://meta.fabricmc.net/v2/versions/game' | jq -r 'map(select(.stable == true) | .version) | .[0]')" || echo "$MINECRAFT_VERSION" )
     LATEST_LOADER_VERSION=$(curl -s "https://meta.fabricmc.net/v2/versions/loader/$SELECTED_MINECRAFT_VERSION" | jq -r '.[] | .loader | select(.stable == true) | .version')
@@ -163,34 +178,40 @@ while true; do
       rm -f server.jar
       curl -L -# -o server.jar "$DOWNLOAD_URL"
       echo No hash verification, continuing...
+    elif [ "$HASH_TYPE" = "skip" ]; then
+      echo skip
     else
       echo "Unknown hash type: $HASH_TYPE"
       exit 1
     fi
   else
-    echo "Updating server to $SERVER_TYPE_NAME build $LATEST_BUILD for $SELECTED_MINECRAFT_VERSION..."
-    curl -L -# -o server.jar "$DOWNLOAD_URL"
-    echo Verifying hash...
-    if [ "$HASH_TYPE" = "md5" ]; then
-      if [ "$(verifyMD5 "$HASH")" != 0 ]; then
-        echo Downloaded JAR does not match hash, try restarting.
-        exit 1
-      else
-        echo Verification successful!
-      fi
-    elif [ "$HASH_TYPE" = "sha256" ]; then
-      if [ "$(verifySHA256 "$HASH")" != 0 ]; then
-        echo Downloaded JAR does not match hash, try restarting.
-        exit 1
-      else
-        echo Verification successful!
-      fi
-    elif [ "$HASH_TYPE" = "none" ]; then
-      echo "$SERVER_TYPE_NAME does not provide hashes for downloads"
-      echo No hash verification, continuing...
+    if [ "$HASH_TYPE" = "skip" ]; then
+      echo skip
     else
-      echo "Unknown hash type: $HASH_TYPE"
-      exit 1
+      echo "Updating server to $SERVER_TYPE_NAME build $LATEST_BUILD for $SELECTED_MINECRAFT_VERSION..."
+      curl -L -# -o server.jar "$DOWNLOAD_URL"
+      echo Verifying hash...
+      if [ "$HASH_TYPE" = "md5" ]; then
+        if [ "$(verifyMD5 "$HASH")" != 0 ]; then
+          echo Downloaded JAR does not match hash, try restarting.
+          exit 1
+        else
+          echo Verification successful!
+        fi
+      elif [ "$HASH_TYPE" = "sha256" ]; then
+        if [ "$(verifySHA256 "$HASH")" != 0 ]; then
+          echo Downloaded JAR does not match hash, try restarting.
+          exit 1
+        else
+          echo Verification successful!
+        fi
+      elif [ "$HASH_TYPE" = "none" ]; then
+        echo "$SERVER_TYPE_NAME does not provide hashes for downloads"
+        echo No hash verification, continuing...
+      else
+        echo "Unknown hash type: $HASH_TYPE"
+        exit 1
+      fi
     fi
   fi
 
@@ -207,6 +228,19 @@ while true; do
     else
       java -Xms$MEMORY_MB -Xmx$MEMORY_MB -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true -jar server.jar --nogui
     fi
+  elif [ "$SERVER_TYPE" = "neoforge" ]; then
+    echo "# Xmx and Xms set the maximum and minimum RAM usage, respectively." > user_jvm_args.txt
+    echo "# They can take any number, followed by an M or a G." >> user_jvm_args.txt
+    echo "# M means Megabyte, G means Gigabyte." >> user_jvm_args.txt
+    echo "# For example, to set the maximum to 3GB: -Xmx3G" >> user_jvm_args.txt
+    echo "# To set the minimum to 2.5GB: -Xms2500M" >> user_jvm_args.txt
+    echo "" >> user_jvm_args.txt
+    echo "# A good default for a modded server is 4GB." >> user_jvm_args.txt
+    echo "# Uncomment the next line to set it." >> user_jvm_args.txt
+    echo "# -Xmx4G" >> user_jvm_args.txt
+    echo "-Xms$MEMORY_MB -Xmx$MEMORY_MB" >> user_jvm_args.txt
+    chmod +x ./run.sh
+    ./run.sh
   else
     java -Xms$MEMORY_MB -Xmx$MEMORY_MB -jar server.jar --nogui
   fi
