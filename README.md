@@ -1,5 +1,5 @@
 # Minecraft Server Auto Updater
-## Version 1.2
+## Version 1.3
 ### Report issues on [Codeberg](https://codeberg.org/pqtato/minecraft-server-auto-updater/issues)
 
 A start script for Minecraft servers that automatically updates. Windows support is not planned.
@@ -12,6 +12,7 @@ Support for more server types is planned
 - [Folia](https://papermc.io/software/folia)
 - [Paper](https://papermc.io/software/paper)
 - [Purpur](https://purpurmc.org)
+- [NeoForge](https://neoforged.net)
 
 ### Download
 
