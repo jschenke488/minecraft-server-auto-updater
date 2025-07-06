@@ -99,6 +99,32 @@ while true; do
     DOWNLOAD_URL="https://api.papermc.io/v2/projects/folia/versions/$SELECTED_MINECRAFT_VERSION/builds/$LATEST_BUILD/downloads/$(curl -sS "https://api.papermc.io/v2/projects/folia/versions/$SELECTED_MINECRAFT_VERSION/builds/$LATEST_BUILD" | jq -r '.downloads.application.name')"
     SERVER_TYPE_NAME=Folia
     SELECTED_USE_AIKARS_FLAGS=$USE_AIKARS_FLAGS
+  elif [ "$SERVER_TYPE" = "neoforge" ]; then
+    echo "NeoForge is not supported yet, please use a different server type."
+    exit 1
+  elif [ "$SERVER_TYPE" = "fabric" ]; then
+    SELECTED_MINECRAFT_VERSION=$([ "$MINECRAFT_VERSION" = "latest" ] && echo "$(curl -sS 'https://meta.fabricmc.net/v2/versions/game' | jq -r 'map(select(.stable == true) | .version) | .[0]')" || echo "$MINECRAFT_VERSION" )
+    LATEST_LOADER_VERSION=$(curl -s "https://meta.fabricmc.net/v2/versions/loader/$SELECTED_MINECRAFT_VERSION" | jq -r '.[] | .loader | select(.stable == true) | .version')
+    if [ -z "$LATEST_LOADER_VERSION" ]; then
+      LATEST_LOADER_VERSION=$(curl -s 'https://meta.fabricmc.net/v2/versions/loader/$SELECTED_MINECRAFT_VERSION' | jq -r '.[] | .loader | .version' | sort -V | tail -1)
+    fi
+    LATEST_INSTALLER_VERSION=$(curl -s 'https://meta.fabricmc.net/v2/versions/installer' | jq -r '.[] | select(.stable == true) | .version')
+    if [ -z "$LATEST_INSTALLER_VERSION" ]; then
+      LATEST_INSTALLER_VERSION=$(curl -s 'https://meta.fabricmc.net/v2/versions/installer' | jq -r '.[] | .version' | sort -V | tail -1)
+    fi
+    LATEST_BUILD="$LATEST_LOADER_VERSION-$LATEST_INSTALLER_VERSION"
+    HASH=none
+    HASH_TYPE=none
+    DOWNLOAD_URL="https://meta.fabricmc.net/v2/versions/loader/$SELECTED_MINECRAFT_VERSION/$LATEST_LOADER_VERSION/$LATEST_INSTALLER_VERSION/server/jar"
+    SERVER_TYPE_NAME=Fabric
+    SELECTED_USE_AIKARS_FLAGS=$USE_AIKARS_FLAGS
+  elif [ "$SERVER_TYPE" = "quilt" ]; then
+    echo "Quilt is not supported yet, please use a different server type."
+    exit 1
+  else
+    echo "Invalid server type: $SERVER_TYPE"
+    echo "Supported server types: purpur, paper, folia, neoforge, fabric, quilt"
+    exit 1
   fi
 
   # downloader
@@ -130,6 +156,15 @@ while true; do
           echo Verification successful!
         fi
       fi
+    elif [ "$HASH_TYPE" = "none" ]; then
+      echo "$SERVER_TYPE_NAME does not provide hashes for downloads. Assuming there is an update available."
+      echo "Updating server to $SERVER_TYPE_NAME build $LATEST_BUILD for $SELECTED_MINECRAFT_VERSION..."
+      rm -f server.jar
+      curl -L -# -o server.jar "$DOWNLOAD_URL"
+      echo No hash verification, continuing...
+    else
+      echo "Unknown hash type: $HASH_TYPE"
+      exit 1
     fi
   else
     echo "Updating server to $SERVER_TYPE_NAME build $LATEST_BUILD for $SELECTED_MINECRAFT_VERSION..."
@@ -149,6 +184,12 @@ while true; do
       else
         echo Verification successful!
       fi
+    elif [ "$HASH_TYPE" = "none" ]; then
+      echo "$SERVER_TYPE_NAME does not provide hashes for downloads"
+      echo No hash verification, continuing...
+    else
+      echo "Unknown hash type: $HASH_TYPE"
+      exit 1
     fi
   fi
 
