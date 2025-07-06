@@ -32,7 +32,7 @@
 # If you are having problems with your server crashing after the console says "Starting background profiler", try disabling Spark in config/paper-global.yml
 
 # Planned features (feel free to suggest more!):
-# - Support for NeoForge and Quilt
+# - Support for Quilt
 
 # What is not planned (may change in the future):
 # - Web console (out of scope, use RCON or a plugin like DiscordSRV)
